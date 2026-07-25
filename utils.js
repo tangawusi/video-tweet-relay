@@ -32,3 +32,28 @@ export async function withRetry(fn, retries = 3) {
     }
   }
 }
+
+/**
+ * Converts standard Twitter/X URLs to embed-friendly domains.
+ * This triggers Discord's native, playable video embed.
+ * 
+ * @param {string} url - The original tweet URL (e.g., https://x.com/user/status/123)
+ * @returns {string} - The rewritten URL (e.g., https://fixupx.com/user/status/123)
+ */
+export function getEmbeddableTwitterUrl(url) {
+  try {
+    const parsedUrl = new URL(url);
+    
+    // Replace twitter.com or x.com with embed-friendly domains
+    if (parsedUrl.hostname.includes('twitter.com')) {
+      parsedUrl.hostname = 'fxtwitter.com';
+    } else if (parsedUrl.hostname.includes('x.com')) {
+      parsedUrl.hostname = 'fixupx.com';
+    }
+    
+    return parsedUrl.toString();
+  } catch (error) {
+    logger.error(`Failed to parse tweet URL, falling back to original: ${error.message}`);
+    return url;
+  }
+}
