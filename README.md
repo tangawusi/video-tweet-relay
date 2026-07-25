@@ -10,7 +10,7 @@ A highly reliable, production-ready Node.js Discord bot that monitors specified 
 - Startup Validation: Verifies Discord channel accessibility on boot.
 
 ## Setup
-1. Install dependencies: \`npm install\`
-2. Copy environment file: \`cp .env.example .env\`
-3. Edit \`.env\` with your actual tokens and mappings.
-4. Run: \`npm start\` (or \`npm run dev\` for development)
+1. Install dependencies: `npm install`
+2. Copy environment file: `cp .env.example .env`
+3. Edit `.env` with your actual tokens and mappings.
+4. Run: `npm start` (or `npm run dev` for development)
