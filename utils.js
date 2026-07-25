@@ -34,21 +34,19 @@ export async function withRetry(fn, retries = 3) {
 }
 
 /**
- * Converts standard Twitter/X URLs to embed-friendly domains.
+ * Converts standard Twitter/X URLs to vxtwitter.com.
  * This triggers Discord's native, playable video embed.
  * 
  * @param {string} url - The original tweet URL (e.g., https://x.com/user/status/123)
- * @returns {string} - The rewritten URL (e.g., https://fixupx.com/user/status/123)
+ * @returns {string} - The rewritten URL (e.g., https://vxtwitter.com/user/status/123)
  */
 export function getEmbeddableTwitterUrl(url) {
   try {
     const parsedUrl = new URL(url);
     
-    // Replace twitter.com or x.com with embed-friendly domains
-    if (parsedUrl.hostname.includes('twitter.com')) {
-      parsedUrl.hostname = 'fxtwitter.com';
-    } else if (parsedUrl.hostname.includes('x.com')) {
-      parsedUrl.hostname = 'fixupx.com';
+    // Replace x.com or twitter.com with vxtwitter.com
+    if (parsedUrl.hostname.includes('x.com') || parsedUrl.hostname.includes('twitter.com')) {
+      parsedUrl.hostname = 'vxtwitter.com';
     }
     
     return parsedUrl.toString();
