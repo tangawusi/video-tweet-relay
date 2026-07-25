@@ -1,5 +1,13 @@
 import logger from './logger.js';
 
+/**
+ * Executes an asynchronous function with exponential backoff retry logic.
+ * Handles rate limits dynamically based on headers.
+ * 
+ * @param {Function} fn - The async function to execute.
+ * @param {number} retries - Maximum number of retry attempts.
+ * @returns {Promise<any>} - Resolves with the result of the function.
+ */
 export async function withRetry(fn, retries = 3) {
   for (let i = 0; i <= retries; i++) {
     try {
@@ -13,6 +21,7 @@ export async function withRetry(fn, retries = 3) {
         throw error;
       }
 
+      // FIX: Check if we are out of retries BEFORE calculating delay and sleeping
       if (i === retries) {
         logger.error(`Max retries (${retries}) reached. Giving up.`);
         throw error;
@@ -34,19 +43,32 @@ export async function withRetry(fn, retries = 3) {
 }
 
 /**
- * Converts standard Twitter/X URLs to vxtwitter.com.
- * This triggers Discord's native, playable video embed.
+ * Converts standard Twitter/X URLs to fxtwitter.com and strips tracking query parameters.
+ * This triggers Discord's native, playable video embed safely.
  * 
- * @param {string} url - The original tweet URL (e.g., https://x.com/user/status/123)
- * @returns {string} - The rewritten URL (e.g., https://vxtwitter.com/user/status/123)
+ * @param {string} url - The original tweet URL (e.g., https://x.com)
+ * @returns {string} - The rewritten URL (e.g., https://fxtwitter.com)
  */
 export function getEmbeddableTwitterUrl(url) {
   try {
     const parsedUrl = new URL(url);
+    const hostname = parsedUrl.hostname.toLowerCase();
     
-    // Replace x.com or twitter.com with vxtwitter.com
-    if (parsedUrl.hostname.includes('x.com') || parsedUrl.hostname.includes('twitter.com')) {
+    // Check for standard X, Twitter, or shortened domains
+    const isTwitter = hostname === 'x.com' || 
+                      hostname === 'twitter.com' || 
+                      hostname === 'x.co' ||
+                      hostname.endsWith('.x.com') || 
+                      hostname.endsWith('.twitter.com');
+    
+    if (isTwitter) {
+      // 1. Point to the embed fixer domain
       parsedUrl.hostname = 'fxtwitter.com';
+      
+      // 2. FIX: Clear out X's user-tracking telemetry params that break embeds
+      parsedUrl.searchParams.delete('s');
+      parsedUrl.searchParams.delete('t');
+      parsedUrl.searchParams.delete('mx');
     }
     
     return parsedUrl.toString();
