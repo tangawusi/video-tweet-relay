@@ -2,11 +2,6 @@ import logger from './logger.js';
 
 /**
  * Executes an asynchronous function with exponential backoff retry logic.
- * Handles rate limits dynamically based on tracking response metadata.
- * 
- * @param {Function} fn - The async function to execute.
- * @param {number} retries - Maximum number of retry attempts.
- * @returns {Promise<any>} - Resolves with the result of the function.
  */
 export async function withRetry(fn, retries = 3) {
   for (let i = 0; i <= retries; i++) {
@@ -21,7 +16,6 @@ export async function withRetry(fn, retries = 3) {
         throw error;
       }
 
-      // Check if we are out of retries BEFORE calculating delay and sleeping
       if (i === retries) {
         logger.error(`Max retries (${retries}) reached. Giving up.`);
         throw error;
@@ -43,56 +37,68 @@ export async function withRetry(fn, retries = 3) {
 }
 
 /**
- * Extracts a Twitter/X Status ID and explicitly constructs a Webhook-compatible 
- * JSON Embed Payload that forces Discord to render a native video engine player.
+ * Converts standard Twitter/X URLs to vxtwitter.com and strips tracking query parameters.
  * 
- * @param {string} originalText - The raw message content from your application pipeline.
- * @returns {Object|null} - A JSON Object payload to send to the Discord Webhook, or null if no link matches.
+ * @param {string} url - The original tweet URL
+ * @returns {string} - The rewritten URL
+ */
+export function getEmbeddableTwitterUrl(url) {
+  try {
+    const parsedUrl = new URL(url);
+    const hostname = parsedUrl.hostname.toLowerCase();
+    
+    const isTwitter = hostname === 'x.com' || 
+                      hostname === 'twitter.com' || 
+                      hostname === 'x.co' ||
+                      hostname.endsWith('.x.com') || 
+                      hostname.endsWith('.twitter.com');
+    
+    if (isTwitter) {
+      // Points Discord to the vxtwitter API crawler page natively
+      parsedUrl.hostname = 'vxtwitter.com';
+      
+      // Strip everything that causes Discord to drop the video parser wrapper
+      parsedUrl.searchParams.delete('s');
+      parsedUrl.searchParams.delete('t');
+      parsedUrl.searchParams.delete('mx');
+      parsedUrl.searchParams.delete('cxt');
+    }
+    
+    return parsedUrl.toString();
+  } catch (error) {
+    logger.error(`Failed to parse tweet URL, falling back to original: ${error.message}`);
+    return url;
+  }
+}
+
+/**
+ * Scans text for Twitter links, replaces them, and returns a raw plain text object.
+ * NO CUSTOM EMBEDS ALLOWED - Crucial for webhook native video parsing.
+ * 
+ * @param {string} originalText - The raw message content.
+ * @returns {Object} - Plain content webhook payload structure.
  */
 export function buildWebhookVideoPayload(originalText) {
-  if (!originalText || typeof originalText !== 'string') return null;
+  if (!originalText || typeof originalText !== 'string') return { content: originalText };
 
-  // Regex targeting the unique numerical status ID structure of an X/Twitter URL
-  const twitterRegex = /https?:\/\/(?:[a-zA-Z0-9-]+\.)?(?:twitter\.com|x\.com|x\.co)\/[a-zA-Z0-9_]+\/status\/([0-9]+)/i;
-  const match = originalText.match(twitterRegex);
+  const twitterRegex = /https?:\/\/(?:[a-zA-Z0-9-]+\.)?(?:twitter\.com|x\.com|x\.co)\/[a-zA-Z0-9_]+\/status\/[0-9]+(?:\?\S*)?/gi;
+  
+  const convertedText = originalText.replace(twitterRegex, (matchedUrl) => {
+    return getEmbeddableTwitterUrl(matchedUrl);
+  });
 
-  if (!match) return null;
-
-  const tweetId = match[1];
-  const videoStreamUrl = `https://vxtwitter.com{tweetId}.mp4`;
-  const fallbackPageUrl = `https://vxtwitter.com{tweetId}`;
-
-  // This explicit structure forces the unauthenticated Webhook layout parser to launch a video frame
+  // CRUCIAL: Removing the custom embeds property array completely.
+  // This allows Discord's native scraper bot to build the HTML5 streaming panel player.
   return {
-    content: originalText.replace(twitterRegex, fallbackPageUrl),
-    embeds: [
-      {
-        title: "🎬 Click to Play Video Close-up",
-        url: fallbackPageUrl,
-        type: "video", // Overrides default text/link styling
-        video: {
-          url: videoStreamUrl,
-          width: 1280,
-          height: 720
-        },
-        provider: {
-          name: "VxTwitter Video Stream",
-          url: "https://vxtwitter.com"
-        }
-      }
-    ]
+    content: convertedText
   };
 }
 
 /**
- * Dispatches a content payload to a Discord Webhook endpoint securely using retry protection.
- * 
- * @param {string} webhookUrl - The target Discord Webhook URL.
- * @param {string} rawUserText - The raw user input message block to evaluate and distribute.
+ * Dispatches content cleanly to your Webhook URL endpoint.
  */
 export async function sendToDiscordWebhook(webhookUrl, rawUserText) {
-  const payload = buildWebhookVideoPayload(rawUserText);
-  const finalPayload = payload ? payload : { content: rawUserText };
+  const finalPayload = buildWebhookVideoPayload(rawUserText);
 
   try {
     await withRetry(async () => {
@@ -107,7 +113,7 @@ export async function sendToDiscordWebhook(webhookUrl, rawUserText) {
       }
     });
     
-    logger.info("Video embed successfully delivered to Discord UI layer.");
+    logger.info("Video raw text embed payload successfully delivered.");
   } catch (error) {
     logger.error(`Webhook pipeline execution crash: ${error.message}`);
   }
