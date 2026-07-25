@@ -3,10 +3,6 @@ import logger from './logger.js';
 /**
  * Executes an asynchronous function with exponential backoff retry logic.
  * Handles rate limits dynamically based on headers.
- * 
- * @param {Function} fn - The async function to execute.
- * @param {number} retries - Maximum number of retry attempts.
- * @returns {Promise<any>} - Resolves with the result of the function.
  */
 export async function withRetry(fn, retries = 3) {
   for (let i = 0; i <= retries; i++) {
@@ -21,7 +17,6 @@ export async function withRetry(fn, retries = 3) {
         throw error;
       }
 
-      // Check if we are out of retries BEFORE calculating delay and sleeping
       if (i === retries) {
         logger.error(`Max retries (${retries}) reached. Giving up.`);
         throw error;
@@ -46,15 +41,14 @@ export async function withRetry(fn, retries = 3) {
  * Converts standard Twitter/X URLs to vxtwitter.com and strips tracking query parameters.
  * This triggers Discord's native, playable video embed rather than a static image file.
  * 
- * @param {string} url - The original tweet URL (e.g., https://x.com)
- * @returns {string} - The rewritten URL (e.g., https://vxtwitter.com)
+ * @param {string} url - The original tweet URL
+ * @returns {string} - The rewritten URL
  */
 export function getEmbeddableTwitterUrl(url) {
   try {
     const parsedUrl = new URL(url);
     const hostname = parsedUrl.hostname.toLowerCase();
     
-    // Check for standard X, Twitter, or shortened domains
     const isTwitter = hostname === 'x.com' || 
                       hostname === 'twitter.com' || 
                       hostname === 'x.co' ||
@@ -62,13 +56,14 @@ export function getEmbeddableTwitterUrl(url) {
                       hostname.endsWith('.twitter.com');
     
     if (isTwitter) {
-      // Point to the vxtwitter engine to force actual inline stream components on Discord
+      // Direct routing back to vxtwitter proxy architecture
       parsedUrl.hostname = 'vxtwitter.com';
       
-      // Clear out X's user-tracking telemetry params that break embeds
+      // Strip everything that causes Discord to fall back to an image block
       parsedUrl.searchParams.delete('s');
       parsedUrl.searchParams.delete('t');
       parsedUrl.searchParams.delete('mx');
+      parsedUrl.searchParams.delete('cxt');
     }
     
     return parsedUrl.toString();
@@ -76,4 +71,25 @@ export function getEmbeddableTwitterUrl(url) {
     logger.error(`Failed to parse tweet URL, falling back to original: ${error.message}`);
     return url;
   }
+}
+
+/**
+ * Scans text, extracts all Twitter/X URLs, hardens them for video embedding,
+ * and formats them explicitly to bypass Discord's static image fallback wrapper bug.
+ * 
+ * @param {string} text - The raw chat message content.
+ * @returns {string} - The text with rewritten vxtwitter URLs.
+ */
+export function parseAndReplaceTwitterLinks(text) {
+  if (!text || typeof text !== 'string') return text;
+
+  const twitterRegex = /https?:\/\/(?:[a-zA-Z0-9-]+\.)?(?:twitter\.com|x\.com|x\.co)\/[a-zA-Z0-9_]+\/status\/[0-9]+(?:\?\S*)?/gi;
+
+  return text.replace(twitterRegex, (matchedUrl) => {
+    const cleanedUrl = getEmbeddableTwitterUrl(matchedUrl);
+    
+    // HARDENING WORKAROUND: Hide the plain text link in a markdown hyper-text anchor.
+    // This forces Discord to initialize the media metadata controller without fallback images.
+    return `[🎬 Watch Video](${cleanedUrl})`;
+  });
 }
