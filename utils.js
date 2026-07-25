@@ -46,7 +46,7 @@ export function getEmbeddableTwitterUrl(url) {
     
     // Replace x.com or twitter.com with vxtwitter.com
     if (parsedUrl.hostname.includes('x.com') || parsedUrl.hostname.includes('twitter.com')) {
-      parsedUrl.hostname = 'vxtwitter.com';
+      parsedUrl.hostname = 'fxtwitter.com';
     }
     
     return parsedUrl.toString();
