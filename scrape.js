@@ -1,6 +1,6 @@
 import config from './config.js';
 import logger from './logger.js';
-import { getEmbeddableTwitterUrl } from './utils.js';
+import { buildWebhookVideoPayload, sendToDiscordWebhook } from './utils.js';
 import { getVideoTweets } from './twitter.js';
 import { isTweetPosted, markTweetPosted } from './database.js';
 import { withRetry } from './utils.js';
