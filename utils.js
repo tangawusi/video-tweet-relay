@@ -21,7 +21,7 @@ export async function withRetry(fn, retries = 3) {
         throw error;
       }
 
-      // FIX: Check if we are out of retries BEFORE calculating delay and sleeping
+      // Check if we are out of retries BEFORE calculating delay and sleeping
       if (i === retries) {
         logger.error(`Max retries (${retries}) reached. Giving up.`);
         throw error;
@@ -43,11 +43,11 @@ export async function withRetry(fn, retries = 3) {
 }
 
 /**
- * Converts standard Twitter/X URLs to fxtwitter.com and strips tracking query parameters.
- * This triggers Discord's native, playable video embed safely.
+ * Converts standard Twitter/X URLs to vxtwitter.com and strips tracking query parameters.
+ * This triggers Discord's native, playable video embed rather than a static image file.
  * 
  * @param {string} url - The original tweet URL (e.g., https://x.com)
- * @returns {string} - The rewritten URL (e.g., https://fxtwitter.com)
+ * @returns {string} - The rewritten URL (e.g., https://vxtwitter.com)
  */
 export function getEmbeddableTwitterUrl(url) {
   try {
@@ -62,10 +62,10 @@ export function getEmbeddableTwitterUrl(url) {
                       hostname.endsWith('.twitter.com');
     
     if (isTwitter) {
-      // 1. Point to the embed fixer domain
-      parsedUrl.hostname = 'fxtwitter.com';
+      // Point to the vxtwitter engine to force actual inline stream components on Discord
+      parsedUrl.hostname = 'vxtwitter.com';
       
-      // 2. FIX: Clear out X's user-tracking telemetry params that break embeds
+      // Clear out X's user-tracking telemetry params that break embeds
       parsedUrl.searchParams.delete('s');
       parsedUrl.searchParams.delete('t');
       parsedUrl.searchParams.delete('mx');
